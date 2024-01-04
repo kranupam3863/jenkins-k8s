@@ -19,4 +19,4 @@ Jenkins-K8s playground
 * In UI while configuring k8s cloud, enter the values for k8s url and jenkins url
 * Add pod template with container template having name as 'jnlp' and image as 'jenkins/inbound-agent'
 * Save and create new job
-
+* pipeline template reference: https://gist.github.com/darinpope/67c297b3ccc04c17991b22e1422df45a
