@@ -10,7 +10,7 @@ Jenkins-K8s playground
 * kubectl apply -f deployment.yaml
 * kubectl describe deployments --namespace=devops-tools
 * kubectl apply -f service.yaml
-* Jenkins will be up at http://<node-ip>:32000
+* Jenkins will be up at http://node-ip:32000
 
 ### Configure k8s cloud
 * kubectl cluster-info -> Capture k8s url
