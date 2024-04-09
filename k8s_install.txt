@@ -1,0 +1,85 @@
+  sudo hostnamectl set-hostname k8s-worker1
+  vi /etc/hosts
+  sudo vi /etc/hosts
+  hostname -I
+  sudo vi /etc/hosts
+  cat /etc/hosts
+  netstat -rn |grep 192.168
+  sudo ip route add  default via 10.129.74.1
+  ping google.com
+  cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+  net.bridge.bridge-nf-call-iptables = 1
+  net.ipv4.ip_forward = 1
+  net.bridge.bridge-nf-call-ip6tables = 1
+  EOF
+  sudo sysctl --system
+  cat <<EOF | sudo tee /etc/modules-load.d/containerd.conf
+  overlay
+  br_netfilter
+  EOF
+  sudo modprobe overlay
+  sudo modprobe br_netfilter
+
+  sudo apt-get update && sudo apt-get install -y containerd.io
+  sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg lsb-release apt-transport-https
+  sudo mkdir -m 0755 -p /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  echo   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update
+  VERSION_STRING=5:23.0.1-1~ubuntu.20.04~focal
+  sudo apt-get install -y docker-ce=$VERSION_STRING docker-ce-cli=$VERSION_STRING containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo usermod -aG docker $USER
+  df -h
+  vi /etc/containerd/config.toml
+  sudo sed -i 's/disabled_plugins/#disabled_plugins/' /etc/containerd/config.toml
+  sudo systemctl restart containerd
+  sudo swapoff -a
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+sudo apt-get update
+
+
+
+
+  curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+  cat << EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  deb https://apt.kubernetes.io/ kubernetes-xenial main
+  EOF
+  sudo apt-get update && sudo apt-get install -y kubelet=1.27.0-00 kubeadm=1.27.0-00 kubectl=1.27.0-00
+  sudo apt-mark hold kubelet kubeadm kubectl
+
+  <CP>
+  systemctl enable --now kubelet
+  kubeadm init
+
+  <WORKER>
+  kubeadm join 10.129.98.63:6443 --token sts41y.3ibwnrpg9ayffj9y --discovery-token-ca-cert-hash sha256:83ffc9645f4a7eaaccbfd5c2ea83ce174c91c59a4d3fa893f65e86b23c322192
+  sudo kubeadm join 10.129.98.63:6443 --token sts41y.3ibwnrpg9ayffj9y --discovery-token-ca-cert-hash sha256:83ffc9645f4a7eaaccbfd5c2ea83ce174c91c59a4d3fa893f65e86b23c322192
+
+
+
+CNI Issues:
+
+Control Plane (NOT READY)
+kubeadm reset
+rm -rf /var/lib/kubelet /etc/cni/net.d
+sysctl --system
+modprobe overlay
+modprobe br_netfilter
+systemctl restart containerd
+then try
+kubeadm init
+<run rest of the init commands shown>
+kubectl apply -f cni.yml
+
+
+Worker Node (NOT READY)
+remove from control plane node first: k drain k8s-worker1 --ignore-daemonsets && k cordon k8s-worker1 && k delete node k8s-worker1
+then on worker node:
+kubeadm reset
+rm -rf /etc/cni/net.d
+service docker restart
+systemctl restart containerd
+systemctl restart kubelet.service
+re-run the join command
